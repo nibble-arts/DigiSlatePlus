@@ -115,7 +115,6 @@ void TC::update_binary(void) {
 
 	// SMPTE/EBU timecode structure (https://www.wikiaudio.org/smpte-time-code/)
 
-
 	// ** byte 0
 	//  0-3	frame units
 	//  4-7	user bits 1

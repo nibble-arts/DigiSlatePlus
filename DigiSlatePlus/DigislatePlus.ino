@@ -80,24 +80,25 @@ RLED rled;
 TC tc;
 RTC rtc;
 
-bool clap;
-uint32_t claptime;
-uint32_t old_claptime;
+
+bool clap;				// slate clap status
+uint32_t claptime;		// last clap time in ms
+uint32_t readtime;		// last read interrupt in ms
 
 
 // =========================================
 // timecode timing
-long realtime;
-long old_realtime;
-long cycletime;
+uint32_t realtime;
+uint32_t old_realtime;
 
-long timertime;
+uint32_t cycletime;
+uint32_t timertime;
 
 bool tick;
 
 
 // DEBUG
-long offset;
+uint32_t offset;
 
 // =========================================
 int btnpressed, btnold, btncount;
@@ -151,7 +152,7 @@ void setup() {
 	// =============================================================
 	// INIT timecode
 	tc.begin();
-	tc.set(1,0,0,0);
+	tc.set(0,0,0,0);
 	tc.fps(25);
 
 
@@ -210,8 +211,8 @@ void setup() {
 	tick = false;
 
 	cli();
-	// attachInterrupt(digitalPinToInterrupt(SIGNAL_INPUT), tcISR, CHANGE);
-	attachInterrupt(digitalPinToInterrupt(RTC_INT_PORT), syncISR, FALLING);
+	// attachInterrupt(digitalPinToInterrupt(SIGNAL_INPUT), inputISR, CHANGE);
+	attachInterrupt(digitalPinToInterrupt(RTC_INT_PORT), rtcISR, FALLING);
 	sei();
 
 
@@ -234,7 +235,7 @@ void setup() {
 
 // debug => set time
 // h,m,s,d,m,y 
-// rtc.set(7,30,0,9,8,2024);
+// rtc.set(7,0,0,23,8,2024);
 
 
 	// read rtc and set time code
@@ -247,8 +248,6 @@ void setup() {
 		// set date in user bits
 		// tc.ubits((time.year() / 1000) & 0xF, (time.year() / 100) & 0xF, (time.year() % 100) & 0xF, (time.month() / 10) & 0xF, (time.month() % 10) & 0xF, (time.day() / 10) & 0xF, (time.day() % 10) & 0xF);
 
-		// snprintf("%0d:%0d:%0d", tc.ubit[0], tc.ubit[2], tc.ubit[3]);
-
 		// display date as userbits on LCD
 		lcd.val8(time.day(), 0, 1);
 		lcd.print(".", 2, 1);
@@ -256,12 +255,6 @@ void setup() {
 		lcd.print(".", 5, 1);
 		lcd.val16(time.year(), 6, 1);
 	}
-
-
-
-
-
-
 
 
 	start_timer1(tc.fps());
@@ -272,6 +265,17 @@ void setup() {
 //
 void loop() {
 
+
+	// =========================================
+	// check if timecode is on TC-input
+	// set 
+	// if (millis() > (READ_TIMEOUT + readtime)) {
+	// 	runMode = false;
+	// }
+		
+
+
+	// =========================================
 	// get button state
 	// true = closed
 	bool button = !digitalRead(BUTTON);
@@ -311,13 +315,19 @@ void loop() {
 				claptime = millis();
 
 				rled.flash(30);
+
+				lcd.status("clap");
 			}
+
 
 
 			// ===================================
 			// slate is closed for CLAP_LONG_CLOSED ms
 			if (millis() > (claptime + CLAP_LONG_CLOSED)) {
 
+				lcd.status(" run");
+
+				// update LED display
 				if (tc.enable()) {
 					led.set(tc.get());
 				}
@@ -355,26 +365,34 @@ void loop() {
 
 
 		// show status
-		if (tc.enable()) {
-
-			if (clap) {
-				lcd.status("clap");
-			}
-			else {
-				lcd.status("sync");
-			}
-		}
-		else {
+		if (!tc.enable()) {
 			lcd.status("init");
+			lcd.val16(abs(cycletime - timertime), 0,1);
 		}
+	}
+
+	// =============================================================
+	// TC input
+	// read mode
+	else {
+
+
 	}
 }    // end of loop()
 
 
 // =========================================
-//
-/*void tcISR() {
-*/
+// signal input interrupt
+// 
+void inputISR() {
+
+	// TC on input detected
+	// read mode
+	runMode = true;
+	readtime = millis();
+
+}
+
 	/*
 		The shell of the ISR is a state machine with three states:
 
@@ -598,7 +616,7 @@ void start_timer1(uint8_t fps) {
 }
 
 
-// stop timer
+// stop timer 1
 // write 0 to clock select bits
 void stop_timer1(void) {
 	TCCR1B &= ~(1 << CS10);
@@ -609,7 +627,7 @@ void stop_timer1(void) {
 
 // =========================================
 // RTC interrupt every exact second
-void syncISR() {
+void rtcISR() {
 
 	tick = true;
 

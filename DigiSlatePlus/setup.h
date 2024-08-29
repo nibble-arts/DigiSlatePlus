@@ -36,6 +36,7 @@ OR OTHER DEALINGS IN THE SOFTWARE.
 #define CLAP_DENOISE 100		// ms
 #define CLAP_LONG_CLOSED 3000	// time with closed clap to enable tc display 
 
+#define READ_TIMEOUT 500		// timeout in ms of input signal to fall to free run
 
 // IO definitions
 #define FLASH_LED A0	// flash led output
